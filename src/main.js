@@ -34,7 +34,13 @@ class QuantumParticleLab {
   async loadCameraList() {
     try {
       // 先請求一次攝像頭權限，否則無法獲取設備標籤
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+      // 立即停止臨時串流，釋放攝像頭
+      tempStream.getTracks().forEach(track => track.stop());
+
+      // 等待一下確保資源釋放
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // 獲取可用的攝像頭列表
       this.availableCameras = await HandTracker.getAvailableCameras();
@@ -60,12 +66,19 @@ class QuantumParticleLab {
         });
 
         console.log(`✅ 找到 ${this.availableCameras.length} 個攝像頭`);
+      } else {
+        console.warn('⚠️ 未找到可用攝像頭，將使用系統預設');
+        if (this.cameraSelect) {
+          this.cameraSelect.innerHTML = '<option>使用預設攝像頭</option>';
+        }
       }
     } catch (error) {
       console.error('❌ 無法載入攝像頭列表:', error);
+      console.log('ℹ️ 將使用系統預設攝像頭');
       if (this.cameraSelect) {
-        this.cameraSelect.innerHTML = '<option>無法載入攝像頭</option>';
+        this.cameraSelect.innerHTML = '<option>使用預設攝像頭</option>';
       }
+      // 不設置 selectedDeviceId，讓 HandTracker 使用預設攝像頭
     }
   }
 
@@ -131,6 +144,8 @@ class QuantumParticleLab {
       }
 
       console.log('🎥 正在初始化 MediaPipe...');
+      console.log('📷 使用攝像頭 ID:', this.selectedDeviceId);
+
       this.handTracker = new HandTracker(
         videoElement,
         (results) => this.handleHandResults(results),
@@ -140,7 +155,14 @@ class QuantumParticleLab {
 
       // 等待 MediaPipe 載入
       await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('✅ 手部追蹤已啟動');
+
+      // 檢查視頻是否正常運行
+      if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+        console.log('✅ 手部追蹤已啟動');
+        console.log(`📹 視頻解析度: ${videoElement.videoWidth}x${videoElement.videoHeight}`);
+      } else {
+        console.warn('⚠️ 視頻可能未正常載入');
+      }
 
       // 隱藏載入畫面
       setTimeout(() => {
