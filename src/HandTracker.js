@@ -1,6 +1,8 @@
-import { Hands } from '@mediapipe/hands';
-import { Camera } from '@mediapipe/camera_utils';
 import { GestureDetector } from './utils/GestureDetector.js';
+
+// 使用 CDN 載入的 MediaPipe (全域變數)
+const Hands = window.Hands;
+const Camera = window.Camera;
 
 /**
  * HandTracker - MediaPipe Hands 整合與手勢追蹤
@@ -46,6 +48,11 @@ export class HandTracker {
   }
 
   async init() {
+    // 確保 MediaPipe 已從 CDN 載入
+    if (!window.Hands || !window.Camera) {
+      throw new Error('MediaPipe 未載入，請確認網路連線並重新整理頁面');
+    }
+
     // 初始化 MediaPipe Hands
     this.hands = new Hands({
       locateFile: (file) => {

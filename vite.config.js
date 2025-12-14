@@ -8,9 +8,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      external: ['@mediapipe/hands', '@mediapipe/camera_utils']
+    }
   },
   optimizeDeps: {
-    include: ['three', '@mediapipe/hands', '@mediapipe/camera_utils']
+    include: ['three'],
+    exclude: ['@mediapipe/hands', '@mediapipe/camera_utils']
   }
 });
