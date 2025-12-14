@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系統檢查 - Quantum Particle Lab</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      margin: 10px 0;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      border-left: 4px solid #ccc;
+    }
+
+    .check-item.pass {
+      border-left-color: #00ff88;
+    }
+
+    .check-item.fail {
+      border-left-color: #ff4444;
+    }
+
+    .check-item.warn {
+      border-left-color: #ffaa00;
+    }
+
+    .icon {
+      font-size: 24px;
+      margin-right: 15px;
+      min-width: 30px;
+    }
+
+    .label {
+      flex: 1;
+      font-weight: bold;
+    }
+
+    .status {
+      padding: 5px 15px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .status.pass {
+      background: #00ff88;
+      color: #000;
+    }
+
+    .status.fail {
+      background: #ff4444;
+      color: #fff;
+    }
+
+    .status.warn {
+      background: #ffaa00;
+      color: #000;
+    }
+
+    .status.checking {
+      background: #666;
+      color: #fff;
+    }
+
+    .summary {
+      margin-top: 30px;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .summary.ready {
+      border: 2px solid #00ff88;
+    }
+
+    .summary.not-ready {
+      border: 2px solid #ff4444;
+    }
+
+    button {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .details {
+      margin-top: 10px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 系統相容性檢查</h1>
+
+    <div id="checks">
+      <div class="check-item" id="check-webgl">
+        <div class="icon">🎨</div>
+        <div class="label">WebGL 支援</div>
+        <div class="status checking">檢查中...</div>
+      </div>
+
+      <div class="check-item" id="check-camera">
+        <div class="icon">📷</div>
+        <div class="label">攝像頭 API</div>
+        <div class="status checking">檢查中...</div>
+      </div>
+
+      <div class="check-item" id="check-es6">
+        <div class="icon">📜</div>
+        <div class="label">ES6 模組支援</div>
+        <div class="status checking">檢查中...</div>
+      </div>
+
+      <div class="check-item" id="check-performance">
+        <div class="icon">⚡</div>
+        <div class="label">硬體加速</div>
+        <div class="status checking">檢查中...</div>
+      </div>
+
+      <div class="check-item" id="check-browser">
+        <div class="icon">🌐</div>
+        <div class="label">瀏覽器版本</div>
+        <div class="status checking">檢查中...</div>
+      </div>
+
+      <div class="check-item" id="check-network">
+        <div class="icon">🌍</div>
+        <div class="label">網路連線</div>
+        <div class="status checking">檢查中...</div>
+      </div>
+    </div>
+
+    <div id="summary" class="summary">
+      <h2>⏳ 正在檢查系統...</h2>
+      <p>請稍候...</p>
+    </div>
+
+    <button id="start-btn" disabled>啟動應用</button>
+  </div>
+
+  <script>
+    const checks = {
+      webgl: false,
+      camera: false,
+      es6: false,
+      performance: false,
+      browser: false,
+      network: false
+    };
+
+    function updateCheck(id, pass, message = '') {
+      const element = document.getElementById(`check-${id}`);
+      const status = element.querySelector('.status');
+
+      element.className = `check-item ${pass ? 'pass' : 'fail'}`;
+      status.className = `status ${pass ? 'pass' : 'fail'}`;
+      status.textContent = pass ? '✓ 通過' : '✗ 失敗';
+
+      if (message) {
+        const details = document.createElement('div');
+        details.className = 'details';
+        details.textContent = message;
+        element.appendChild(details);
+      }
+
+      checks[id] = pass;
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const summary = document.getElementById('summary');
+      const startBtn = document.getElementById('start-btn');
+
+      const passCount = Object.values(checks).filter(v => v).length;
+      const totalCount = Object.keys(checks).length;
+
+      if (passCount === totalCount) {
+        summary.className = 'summary ready';
+        summary.innerHTML = '<h2>✅ 系統已就緒！</h2><p>所有檢查項目都已通過，可以開始使用。</p>';
+        startBtn.disabled = false;
+      } else if (passCount > 0) {
+        summary.className = 'summary not-ready';
+        summary.innerHTML = `<h2>⚠️ 部分檢查未通過</h2><p>通過 ${passCount}/${totalCount} 項檢查</p>`;
+      }
+    }
+
+    async function checkWebGL() {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        updateCheck('webgl', !!gl, gl ? `渲染器: ${gl.getParameter(gl.RENDERER)}` : '');
+      } catch (e) {
+        updateCheck('webgl', false, '無法建立 WebGL 上下文');
+      }
+    }
+
+    async function checkCamera() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          updateCheck('camera', false, '瀏覽器不支援 MediaDevices API');
+          return;
+        }
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasCamera = devices.some(d => d.kind === 'videoinput');
+        updateCheck('camera', hasCamera, hasCamera ? `找到 ${devices.filter(d => d.kind === 'videoinput').length} 個攝像頭` : '未找到攝像頭');
+      } catch (e) {
+        updateCheck('camera', false, e.message);
+      }
+    }
+
+    function checkES6() {
+      try {
+        eval('"use strict"; class Test {}; const t = () => {}; let x = 1;');
+        updateCheck('es6', true, '支援 ES6+ 語法');
+      } catch (e) {
+        updateCheck('es6', false, '不支援 ES6 語法');
+      }
+    }
+
+    function checkPerformance() {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl');
+
+      if (!gl) {
+        updateCheck('performance', false, '無法檢查');
+        return;
+      }
+
+      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      if (debugInfo) {
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        const hasGPU = !renderer.includes('SwiftShader') && !renderer.includes('Software');
+        updateCheck('performance', hasGPU, renderer);
+      } else {
+        updateCheck('performance', true, '無法取得渲染器資訊');
+      }
+    }
+
+    function checkBrowser() {
+      const ua = navigator.userAgent;
+      let browser = 'Unknown';
+      let version = 0;
+
+      if (ua.includes('Chrome')) {
+        browser = 'Chrome';
+        version = parseInt(ua.match(/Chrome\/(\d+)/)?.[1] || 0);
+      } else if (ua.includes('Firefox')) {
+        browser = 'Firefox';
+        version = parseInt(ua.match(/Firefox\/(\d+)/)?.[1] || 0);
+      } else if (ua.includes('Safari') && !ua.includes('Chrome')) {
+        browser = 'Safari';
+        version = parseInt(ua.match(/Version\/(\d+)/)?.[1] || 0);
+      } else if (ua.includes('Edge')) {
+        browser = 'Edge';
+        version = parseInt(ua.match(/Edge\/(\d+)/)?.[1] || 0);
+      }
+
+      const minVersions = { Chrome: 90, Firefox: 88, Safari: 14, Edge: 90 };
+      const pass = version >= (minVersions[browser] || 0);
+
+      updateCheck('browser', pass, `${browser} ${version}${pass ? '' : ` (建議 ${minVersions[browser]}+)`}`);
+    }
+
+    async function checkNetwork() {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js', {
+          method: 'HEAD',
+          signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+        updateCheck('network', response.ok, 'CDN 連線正常');
+      } catch (e) {
+        updateCheck('network', false, '無法連接到 CDN（MediaPipe 可能無法載入）');
+      }
+    }
+
+    async function runChecks() {
+      await Promise.all([
+        checkWebGL(),
+        checkCamera(),
+        checkES6(),
+        checkPerformance(),
+        checkBrowser(),
+        checkNetwork()
+      ]);
+    }
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+      window.location.href = '/';
+    });
+
+    runChecks();
+  </script>
+</body>
+</html>

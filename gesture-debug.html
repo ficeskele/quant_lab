@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手勢調試工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #0ff;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .video-section {
+      position: relative;
+    }
+
+    #video {
+      width: 100%;
+      border: 2px solid #0ff;
+      transform: scaleX(-1);
+    }
+
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      pointer-events: none;
+    }
+
+    .data-section {
+      background: rgba(0, 255, 255, 0.1);
+      border: 2px solid #0ff;
+      padding: 20px;
+      height: fit-content;
+    }
+
+    .gesture-display {
+      font-size: 48px;
+      text-align: center;
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(255, 255, 0, 0.1);
+      border: 2px solid #ff0;
+      color: #ff0;
+    }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .data-item {
+      background: rgba(0, 255, 0, 0.05);
+      padding: 10px;
+      border: 1px solid #0f0;
+    }
+
+    .data-label {
+      color: #0ff;
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+
+    .data-value {
+      font-size: 16px;
+      font-weight: bold;
+      color: #0f0;
+    }
+
+    .data-value.active {
+      color: #ff0;
+      animation: blink 0.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .threshold-info {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 0, 0.05);
+      border: 1px solid #ff0;
+    }
+
+    .threshold-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    .instructions {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(0, 255, 255, 0.05);
+      border: 1px solid #0ff;
+    }
+
+    .instructions h3 {
+      color: #0ff;
+      margin-bottom: 10px;
+    }
+
+    .instructions li {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🖐️ 手勢偵測調試工具</h1>
+
+    <div class="layout">
+      <div class="video-section">
+        <video id="video" autoplay playsinline width="640" height="480"></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+      </div>
+
+      <div class="data-section">
+        <div class="gesture-display" id="gesture-display">等待手部...</div>
+
+        <div class="data-grid">
+          <div class="data-item">
+            <div class="data-label">捏合距離</div>
+            <div class="data-value" id="pinch-dist">-</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">捏合閾值</div>
+            <div class="data-value">0.080</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">掌寬</div>
+            <div class="data-value" id="palm-width">-</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">張開閾值</div>
+            <div class="data-value">0.150</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">✌️ V 間距</div>
+            <div class="data-value" id="v-gap">-</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">✌️ 門檻</div>
+            <div class="data-value" id="v-threshold">-</div>
+          </div>
+        </div>
+
+        <div style="margin: 20px 0;">
+          <h3 style="color: #0ff; margin-bottom: 10px;">手指狀態</h3>
+          <div class="data-grid">
+            <div class="data-item">
+              <div class="data-label">拇指</div>
+              <div class="data-value" id="thumb">-</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">食指</div>
+              <div class="data-value" id="index">-</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">中指</div>
+              <div class="data-value" id="middle">-</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">無名指</div>
+              <div class="data-value" id="ring">-</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">小指</div>
+              <div class="data-value" id="pinky">-</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="threshold-info">
+          <h3 style="color: #ff0; margin-bottom: 10px;">手勢判定條件</h3>
+          <div class="threshold-item">
+            <span>🤏 PINCH:</span>
+            <span>拇指-食指距離 < 0.08</span>
+          </div>
+          <div class="threshold-item">
+            <span>✌️ PEACE:</span>
+            <span>食指+中指伸直，無名指+小指彎曲，V 間距 > 掌寬 x 0.35 (至少 0.025)</span>
+          </div>
+          <div class="threshold-item">
+            <span>🖐️ FULL_OPEN:</span>
+            <span>5指全伸 + 掌寬 > 0.15（排斥）</span>
+          </div>
+          <div class="threshold-item">
+            <span>🖐️ FULL_OPEN:</span>
+            <span>5指全伸 + 掌寬 > 0.15</span>
+          </div>
+        </div>
+
+        <div class="instructions">
+          <h3>測試步驟</h3>
+          <ol>
+            <li>確保手部在畫面中</li>
+            <li>觀察「捏合距離」數值</li>
+            <li>嘗試捏合時，數值應 < 0.08</li>
+            <li>觀察手指狀態是否正確</li>
+            <li>嘗試不同手勢，檢查判定</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js';
+    import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1632432234/camera_utils.js';
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const gestureDisplay = document.getElementById('gesture-display');
+    const pinchDist = document.getElementById('pinch-dist');
+    const palmWidth = document.getElementById('palm-width');
+    const vGapEl = document.getElementById('v-gap');
+    const vThresholdEl = document.getElementById('v-threshold');
+    const thumbEl = document.getElementById('thumb');
+    const indexEl = document.getElementById('index');
+    const middleEl = document.getElementById('middle');
+    const ringEl = document.getElementById('ring');
+    const pinkyEl = document.getElementById('pinky');
+
+    const PINCH_THRESHOLD = 0.08;
+    const EXTENDED_ANGLE_THRESHOLD = 165;
+    const CURL_ANGLE_THRESHOLD = 150;
+    const PEACE_V_SPREAD_RATIO = 0.35;
+    const PEACE_V_MIN_SPREAD = 0.025;
+    const FULL_OPEN_SPREAD_THRESHOLD = 0.15;
+
+    function calculateDistance(p1, p2) {
+      const dx = p1.x - p2.x;
+      const dy = p1.y - p2.y;
+      const dz = (p1.z || 0) - (p2.z || 0);
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    function getFingerCurlAngle(landmarks, tipIndex) {
+      const mcp = landmarks[tipIndex - 3];
+      const pip = landmarks[tipIndex - 2];
+      const dip = landmarks[tipIndex - 1];
+
+      const v1 = {
+        x: mcp.x - pip.x,
+        y: mcp.y - pip.y,
+        z: (mcp.z || 0) - (pip.z || 0)
+      };
+      const v2 = {
+        x: dip.x - pip.x,
+        y: dip.y - pip.y,
+        z: (dip.z || 0) - (pip.z || 0)
+      };
+
+      const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+      const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z);
+      const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z);
+
+      if (mag1 === 0 || mag2 === 0) return 180;
+
+      const cosAngle = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+      return Math.acos(cosAngle) * (180 / Math.PI);
+    }
+
+    function isFingerExtended(landmarks, tipIndex) {
+      const tip = landmarks[tipIndex];
+      const dip = landmarks[tipIndex - 1];
+      const pip = landmarks[tipIndex - 2];
+      const mcp = landmarks[tipIndex - 3];
+
+      const tipToMcp = calculateDistance(tip, mcp);
+      const dipToMcp = calculateDistance(dip, mcp);
+
+      const curlAngle = getFingerCurlAngle(landmarks, tipIndex);
+
+      return (tipToMcp > dipToMcp * 1.1) || (curlAngle > EXTENDED_ANGLE_THRESHOLD);
+    }
+
+    function isFingerCurled(landmarks, tipIndex) {
+      const tip = landmarks[tipIndex];
+      const dip = landmarks[tipIndex - 1];
+      const mcp = landmarks[tipIndex - 3];
+
+      const tipToMcp = calculateDistance(tip, mcp);
+      const dipToMcp = calculateDistance(dip, mcp);
+
+      const curlAngle = getFingerCurlAngle(landmarks, tipIndex);
+
+      return (tipToMcp < dipToMcp * 1.05) || (curlAngle < CURL_ANGLE_THRESHOLD);
+    }
+
+    function isThumbExtended(landmarks) {
+      const thumbTip = landmarks[4];
+      const thumbMcp = landmarks[2];
+      const wrist = landmarks[0];
+
+      const tipToWrist = calculateDistance(thumbTip, wrist);
+      const mcpToWrist = calculateDistance(thumbMcp, wrist);
+
+      return tipToWrist > mcpToWrist * 1.3;
+    }
+
+    function getPalmWidth(landmarks) {
+      return calculateDistance(landmarks[5], landmarks[17]);
+    }
+
+    function detectGesture(landmarks) {
+      const pinchDistance = calculateDistance(landmarks[4], landmarks[8]);
+      const fingers = [
+        isFingerExtended(landmarks, 8),
+        isFingerExtended(landmarks, 12),
+        isFingerExtended(landmarks, 16),
+        isFingerExtended(landmarks, 20)
+      ];
+      const thumbExt = isThumbExtended(landmarks);
+      const palm = getPalmWidth(landmarks);
+      const fingerGap = calculateDistance(landmarks[8], landmarks[12]);
+      const requiredGap = Math.max(PEACE_V_MIN_SPREAD, palm * PEACE_V_SPREAD_RATIO);
+      const wrist = landmarks[0];
+      const thumbTip = landmarks[4];
+      const fingerCurls = [
+        isFingerCurled(landmarks, 8),
+        isFingerCurled(landmarks, 12),
+        isFingerCurled(landmarks, 16),
+        isFingerCurled(landmarks, 20)
+      ];
+      const curledCount = fingerCurls.filter(Boolean).length;
+      const thumbAboveWrist = (wrist.y - thumbTip.y) > 0.05;
+
+      // 捏合
+      if (pinchDistance < PINCH_THRESHOLD && thumbExt && fingers[0]) {
+        return 'PINCH 🤏';
+      }
+
+      // V字（食指+中指伸直，無名指+小指彎曲）
+      if (fingers[0] && fingers[1] && isFingerCurled(landmarks, 16) && isFingerCurled(landmarks, 20) && fingerGap > requiredGap) {
+        return 'PEACE ✌️';
+      }
+
+      // 按讚
+      // 全張開（排斥）
+      if (fingers.every(f => f) && thumbExt && palm > FULL_OPEN_SPREAD_THRESHOLD) {
+        return 'FULL_OPEN 🖐️';
+      }
+
+      return 'NONE';
+    }
+
+    function drawLandmarks(landmarks) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 繪製連線
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2;
+
+      const connections = [
+        [0, 1], [1, 2], [2, 3], [3, 4],
+        [0, 5], [5, 6], [6, 7], [7, 8],
+        [0, 9], [9, 10], [10, 11], [11, 12],
+        [0, 13], [13, 14], [14, 15], [15, 16],
+        [0, 17], [17, 18], [18, 19], [19, 20],
+        [5, 9], [9, 13], [13, 17]
+      ];
+
+      connections.forEach(([start, end]) => {
+        const p1 = landmarks[start];
+        const p2 = landmarks[end];
+        ctx.beginPath();
+        ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+        ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+        ctx.stroke();
+      });
+
+      // 繪製關鍵點
+      landmarks.forEach((point, i) => {
+        const x = point.x * canvas.width;
+        const y = point.y * canvas.height;
+        ctx.fillStyle = [0, 4, 8, 12, 16, 20].includes(i) ? '#ff0000' : '#00ff00';
+        ctx.beginPath();
+        ctx.arc(x, y, [0, 4, 8, 12, 16, 20].includes(i) ? 6 : 3, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+
+      // 標示拇指和食指連線（捏合檢測）
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(landmarks[4].x * canvas.width, landmarks[4].y * canvas.height);
+      ctx.lineTo(landmarks[8].x * canvas.width, landmarks[8].y * canvas.height);
+      ctx.stroke();
+    }
+
+    async function init() {
+      const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
+      });
+
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.7,
+        selfieMode: true
+      });
+
+      hands.onResults((results) => {
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+          const landmarks = results.multiHandLandmarks[0];
+
+          // 計算數值
+          const pd = calculateDistance(landmarks[4], landmarks[8]);
+          const pw = getPalmWidth(landmarks);
+          const fingers = [
+            isFingerExtended(landmarks, 8),
+            isFingerExtended(landmarks, 12),
+            isFingerExtended(landmarks, 16),
+            isFingerExtended(landmarks, 20)
+          ];
+          const thumbExt = isThumbExtended(landmarks);
+          const fingerGap = calculateDistance(landmarks[8], landmarks[12]);
+          const requiredGap = Math.max(PEACE_V_MIN_SPREAD, pw * PEACE_V_SPREAD_RATIO);
+
+          // 更新顯示
+          pinchDist.textContent = pd.toFixed(4);
+          pinchDist.className = pd < PINCH_THRESHOLD ? 'data-value active' : 'data-value';
+
+          palmWidth.textContent = pw.toFixed(4);
+          palmWidth.className = pw > FULL_OPEN_SPREAD_THRESHOLD ? 'data-value active' : 'data-value';
+
+          vGapEl.textContent = fingerGap.toFixed(4);
+          vGapEl.className = fingerGap > requiredGap ? 'data-value active' : 'data-value';
+          vThresholdEl.textContent = requiredGap.toFixed(4);
+
+          thumbEl.textContent = thumbExt ? '伸直 ✓' : '彎曲 ✗';
+          thumbEl.className = thumbExt ? 'data-value active' : 'data-value';
+
+          indexEl.textContent = fingers[0] ? '伸直 ✓' : '彎曲 ✗';
+          indexEl.className = fingers[0] ? 'data-value active' : 'data-value';
+
+          middleEl.textContent = fingers[1] ? '伸直 ✓' : '彎曲 ✗';
+          middleEl.className = fingers[1] ? 'data-value active' : 'data-value';
+
+          ringEl.textContent = fingers[2] ? '伸直 ✓' : '彎曲 ✗';
+          ringEl.className = fingers[2] ? 'data-value active' : 'data-value';
+
+          pinkyEl.textContent = fingers[3] ? '伸直 ✓' : '彎曲 ✗';
+          pinkyEl.className = fingers[3] ? 'data-value active' : 'data-value';
+
+          const gesture = detectGesture(landmarks);
+          gestureDisplay.textContent = gesture;
+
+          drawLandmarks(landmarks);
+        } else {
+          gestureDisplay.textContent = '等待手部...';
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      });
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: 'user' }
+      });
+
+      video.srcObject = stream;
+      await new Promise(resolve => video.onloadedmetadata = resolve);
+
+      const camera = new Camera(video, {
+        onFrame: async () => {
+          await hands.send({ image: video });
+        },
+        width: 640,
+        height: 480
+      });
+
+      await camera.start();
+      console.log('✅ 手勢調試工具已啟動');
+    }
+
+    init();
+  </script>
+</body>
+</html>
